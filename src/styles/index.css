@@ -1,0 +1,135 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 240 10% 5%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 5%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 5%;
+    
+    --primary: 193 95% 55%;
+    --primary-foreground: 240 10% 5%;
+    
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 5%;
+    
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 5% 45%;
+    
+    --accent: 193 95% 55%;
+    --accent-foreground: 240 10% 5%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 240 10% 90%;
+    --input: 240 10% 90%;
+    --ring: 193 95% 55%;
+    
+    --code-bg: 240 5% 96%;
+    --code-cursor: 193 95% 55%;
+    --code-correct: 142 76% 36%;
+    --code-error: 0 84% 60%;
+    
+    --radius: 0.5rem;
+    
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 210 20% 98%;
+    
+    --card: 240 8% 8%;
+    --card-foreground: 210 20% 98%;
+    
+    --popover: 240 8% 8%;
+    --popover-foreground: 210 20% 98%;
+    
+    --primary: 193 95% 55%;
+    --primary-foreground: 240 10% 5%;
+    
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 210 20% 98%;
+    
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    
+    --accent: 193 95% 55%;
+    --accent-foreground: 240 10% 5%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 240 5% 20%;
+    --input: 240 5% 20%;
+    --ring: 193 95% 55%;
+    
+    --code-bg: 240 8% 10%;
+    --code-cursor: 193 95% 55%;
+    --code-correct: 142 76% 36%;
+    --code-error: 0 84% 60%;
+    
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  code, pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+}
+
+@layer utilities {
+  .code-cursor {
+    position: relative;
+    display: inline-block;
+    min-width: 0.6ch;
+  }
+
+  .typing-caret {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: hsl(var(--code-cursor));
+    animation: pulse-cursor 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-cursor {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.02);
+    }
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+}
+
