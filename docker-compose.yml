@@ -1,0 +1,108 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: code-type-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kratos-migrate:
+    image: oryd/kratos:v1.2.0
+    container_name: code-type-kratos-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: ${KRATOS_DSN}
+      LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
+    command:
+      - migrate
+      - sql
+      - -e
+      - --config
+      - /etc/config/kratos.yml
+      - --yes
+    volumes:
+      - ./auth-service/kratos:/etc/config:ro
+    restart: "on-failure"
+
+  kratos:
+    image: oryd/kratos:v1.2.0
+    container_name: code-type-kratos
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    environment:
+      DSN: ${KRATOS_DSN}
+      LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
+      KRATOS_BROWSER_DEFAULT_RETURN_URL: ${KRATOS_BROWSER_DEFAULT_RETURN_URL:-http://frontend-service:3000/}
+      COOKIE_SECRET: ${KRATOS_COOKIE_SECRET}
+      DEFAULT_SECRET: ${KRATOS_DEFAULT_SECRET}
+      CIPHER_SECRET: ${KRATOS_CIPHER_SECRET}
+    command:
+      - serve
+      - --config
+      - /etc/config/kratos.yml
+    ports:
+      - "4433:4433"
+      - "4434:4434"
+    volumes:
+      - ./auth-service/kratos:/etc/config:ro
+    restart: unless-stopped
+
+  oathkeeper:
+    image: oryd/oathkeeper:v0.40.6
+    container_name: code-type-oathkeeper
+    depends_on:
+      kratos:
+        condition: service_started
+    environment:
+      LOG_LEVEL: ${OATHKEEPER_LOG_LEVEL:-info}
+    command:
+      - serve
+      - proxy
+      - --config
+      - /etc/config/oathkeeper.yml
+    ports:
+      - "4455:4455"
+      - "4456:4456"
+    volumes:
+      - ./auth-service/oathkeeper/config.yml:/etc/config/oathkeeper.yml:ro
+      - ./auth-service/oathkeeper/rules.yml:/etc/oathkeeper/rules.yml:ro
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend-service
+    container_name: code-type-backend
+    depends_on:
+      oathkeeper:
+        condition: service_started
+    environment:
+      GO_ENV: ${GO_ENV:-development}
+      HTTP_PORT: ${BACKEND_HTTP_PORT:-8080}
+      KRATOS_PUBLIC_URL: ${KRATOS_PUBLIC_URL:-http://oathkeeper:4455/.ory/kratos/public}
+      DATABASE_DSN: ${BACKEND_DATABASE_DSN}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: code-type-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+
