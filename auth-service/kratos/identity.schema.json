@@ -1,0 +1,74 @@
+{
+  "$id": "https://schemas.ory.sh/presets/kratos/identity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Person",
+  "type": "object",
+  "properties": {
+    "traits": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "title": "E-Mail",
+          "minLength": 3,
+          "maxLength": 254,
+          "ory.sh/kratos": {
+            "credentials": {
+              "password": {
+                "identifier": true
+              }
+            },
+            "recovery": {
+              "via": "email"
+            },
+            "verification": {
+              "via": "email"
+            }
+          }
+        },
+        "name": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First Name",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "last": {
+              "type": "string",
+              "title": "Last Name",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "additionalProperties": false
+        },
+        "birthdate": {
+          "type": "string",
+          "format": "date",
+          "title": "Date of Birth",
+          "description": "Date of birth in ISO 8601 format (YYYY-MM-DD)"
+        },
+        "bio": {
+          "type": "string",
+          "title": "Biography",
+          "maxLength": 500,
+          "description": "Short biography or description"
+        },
+        "website": {
+          "type": "string",
+          "format": "uri",
+          "title": "Website",
+          "description": "Personal or professional website URL"
+        }
+      },
+      "required": ["email"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["traits"],
+  "additionalProperties": false
+}
+

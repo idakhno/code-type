@@ -1,0 +1,33 @@
+# Access rules define how Oathkeeper routes and authenticates requests.
+# Public routes use anonymous authenticator, private routes require valid Kratos session.
+# See: https://www.ory.sh/docs/oathkeeper/reference/access-rules
+
+- id: public-api
+  match:
+    url: http://oathkeeper:4455/api/public/<**>
+    methods: ["GET", "OPTIONS"]
+  authenticators:
+    - anonymous
+  authorizer: allow
+  mutators:
+    - id: noop
+  upstream:
+    url: http://backend:8080/api/public
+    strip_path: /api/public
+
+- id: private-api
+  match:
+    url: http://oathkeeper:4455/api/private/<**>
+    methods: ["GET", "OPTIONS"]
+  authenticators:
+    - cookie_session
+  authorizer: allow
+  mutators:
+    - id: header
+      config:
+        headers:
+          X-User-Id: '{{ print .Session.Subject }}'
+  upstream:
+    url: http://backend:8080/api/private
+    strip_path: /api/private
+

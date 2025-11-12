@@ -10,8 +10,7 @@ updates:
   # 1. NPM (JavaScript / TypeScript / React)
   # ----------------------------------------------------
   - package-ecosystem: "npm"
-    # ⚠️ ATTENTION: Check the path to package.json
-    directory: "/" 
+    directory: "/frontend-service" 
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -33,8 +32,7 @@ updates:
   # 2. Go (Golang)
   # ----------------------------------------------------
   - package-ecosystem: "gomod"
-    # ⚠️ ATTENTION: Check the path to go.mod
-    directory: "/"
+    directory: "/backend-service"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -52,8 +50,7 @@ updates:
   # 3. Docker
   # ----------------------------------------------------
   - package-ecosystem: "docker"
-    # ⚠️ ATTENTION: Check the path to Dockerfile
-    directory: "/"
+    directory: "/backend-service"
     schedule:
       interval: "weekly"
       day: "sunday"
@@ -71,7 +68,6 @@ updates:
   # 4. GitHub Actions
   # ----------------------------------------------------
   - package-ecosystem: "github-actions"
-    # ⚠️ ATTENTION: Check the path to GitHub Actions config
     directory: "/"
     schedule:
       interval: "weekly"

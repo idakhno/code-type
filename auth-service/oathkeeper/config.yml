@@ -1,0 +1,37 @@
+# ORY Oathkeeper configuration for authorization gateway.
+# Validates sessions with Kratos and injects X-User-Id header for authenticated requests.
+# See: https://www.ory.sh/docs/oathkeeper/reference/configuration
+# See: https://www.ory.sh/docs/oathkeeper/authentication#cookie-session
+
+serve:
+  proxy:
+    port: 4455
+    host: 0.0.0.0
+  api:
+    port: 4456
+    host: 0.0.0.0
+
+access_rules:
+  repositories:
+    - file:///etc/oathkeeper/rules.yml
+
+authenticators:
+  cookie_session:
+    enabled: true
+    config:
+      check_session_url: http://kratos:4433/sessions/whoami
+      subject_from: identity.id
+  anonymous:
+    enabled: true
+
+authorizers:
+  allow:
+    enabled: true
+
+mutators:
+  header:
+    enabled: true
+    config:
+      headers:
+        X-User-Id: '{{ print .Session.Subject }}'
+
