@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
 import { practiceModel } from "@/entities/practice";
 import { historyModel } from "@/entities/history";
@@ -25,11 +26,17 @@ interface PracticeSessionApi {
   newTest: () => void;
   changeLanguage: (language: PracticeLanguage) => void;
   clearLastResult: () => void;
+  handleInput: (char: string) => void;
 }
+
+const normalizeSnippet = (value: string): string =>
+  value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
 const usePracticeSession = (): PracticeSessionApi => {
   const [language, setLanguage] = useState<PracticeLanguage>("javascript");
-  const [snippet, setSnippet] = useState<string>(() => practiceModel.getInitialSnippet("javascript"));
+  const [snippet, setSnippet] = useState<string>(() =>
+    normalizeSnippet(practiceModel.getInitialSnippet("javascript")),
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState<Set<number>>(new Set());
   const [isStarted, setIsStarted] = useState(false);
@@ -63,7 +70,7 @@ const usePracticeSession = (): PracticeSessionApi => {
   const loadSnippet = useCallback(
     (lang: PracticeLanguage) => {
       const newSnippet = practiceModel.getRandomSnippet(lang);
-      setSnippet(newSnippet);
+      setSnippet(normalizeSnippet(newSnippet));
       resetSession();
     },
     [resetSession],
@@ -95,56 +102,61 @@ const usePracticeSession = (): PracticeSessionApi => {
         language,
         date: new Date().toISOString(),
       };
-      historyModel.addHistoryEntry(result);
+      void historyModel.addHistoryEntry(result).catch((error) => {
+        console.error("Failed to persist history entry:", error);
+        const message = error instanceof Error ? error.message : "Failed to save history entry";
+        toast.error(message);
+      });
       setLastResult(result);
     },
     [wpm, errors, timeElapsed, language],
   );
 
-  const handleKeyPress = useCallback(
-    (event: KeyboardEvent) => {
+  const handleInput = useCallback(
+    (inputChar: string) => {
       if (!isStarted || isPaused || isFinished) {
         return;
       }
 
-      let char = event.key;
       const expectedChar = snippet[currentIndex];
-
-      if (char === "Enter") {
-        event.preventDefault();
-        char = "\n";
-      } else if (char === "Tab") {
-        event.preventDefault();
-        char = "\t";
+      if (typeof expectedChar === "undefined") {
+        return;
       }
 
-      if (char === expectedChar) {
-        const newIndex = currentIndex + 1;
-        setCurrentIndex(newIndex);
+      if (inputChar === expectedChar) {
+        const nextIndex = currentIndex + 1;
+        setCurrentIndex(nextIndex);
 
-        if (newIndex === snippet.length) {
+        if (nextIndex === snippet.length) {
           setIsFinished(true);
           const finalAccuracy = practiceModel.calculateAccuracy(snippet.length, errors.size);
           setAccuracy(finalAccuracy);
           finishSession(finalAccuracy);
         }
-      } else if (char.length === 1) {
-        const newErrors = new Set(errors);
-        newErrors.add(currentIndex);
-        setErrors(newErrors);
-        const currentAccuracy = practiceModel.calculateAccuracy(Math.max(currentIndex, 1), newErrors.size);
-        setAccuracy(currentAccuracy);
+      } else {
+        setErrors((prev) => {
+          if (prev.has(currentIndex)) {
+            return prev;
+          }
+          const updated = new Set(prev);
+          updated.add(currentIndex);
+          const totalChars = Math.max(currentIndex, 1);
+          const newAccuracy = practiceModel.calculateAccuracy(totalChars, updated.size);
+          setAccuracy(newAccuracy);
+          return updated;
+        });
       }
     },
-    [isStarted, isPaused, isFinished, snippet, currentIndex, errors, finishSession],
+    [
+      isStarted,
+      isPaused,
+      isFinished,
+      snippet,
+      currentIndex,
+      errors,
+      finishSession,
+    ],
   );
-
-  useEffect(() => {
-    if (isStarted && !isPaused && !isFinished) {
-      window.addEventListener("keydown", handleKeyPress);
-      return () => window.removeEventListener("keydown", handleKeyPress);
-    }
-  }, [isStarted, isPaused, isFinished, handleKeyPress]);
 
   const start = () => {
     if (isStarted) {
@@ -172,6 +184,9 @@ const usePracticeSession = (): PracticeSessionApi => {
       return false;
     }
     setIsFinished(true);
+    const finalAccuracy = practiceModel.calculateAccuracy(currentIndex, errors.size);
+    setAccuracy(finalAccuracy);
+    finishSession(finalAccuracy);
     return true;
   };
 
@@ -211,6 +226,7 @@ const usePracticeSession = (): PracticeSessionApi => {
     newTest,
     changeLanguage,
     clearLastResult,
+    handleInput,
   };
 };
 

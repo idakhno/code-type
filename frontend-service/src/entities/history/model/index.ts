@@ -1,3 +1,2 @@
 export { getHistory, addHistoryEntry, clearHistory } from "./history";
-export type { HistoryEntry } from "./types";
-
+export type { HistoryEntry, HistoryInput } from "./types";

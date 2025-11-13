@@ -1,15 +1,7 @@
-/**
- * ORY Kratos API client for authentication
- * Based on Kratos quickstart documentation: https://www.ory.sh/docs/kratos/quickstart
- * Types based on OpenAPI specification
- */
+// Minimal client for the ORY Kratos endpoints we rely on.
+const KRATOS_PUBLIC_URL = import.meta.env.VITE_KRATOS_PUBLIC_URL || 'http://localhost:4433';
 
-const KRATOS_PUBLIC_URL = import.meta.env.VITE_KRATOS_PUBLIC_URL || 'http://127.0.0.1:4433';
-
-// ============================================================================
-// Types (based on OpenAPI specification)
-// ============================================================================
-
+// Types pulled from the Kratos OpenAPI schema.
 export type SelfServiceFlowType = 'api' | 'browser';
 export type AuthenticatorAssuranceLevel = 'aal0' | 'aal1' | 'aal2' | 'aal3';
 export type LoginFlowState = 'choose_method' | 'sent_email' | 'passed_challenge';
@@ -198,6 +190,7 @@ export interface KratosError {
     status?: string;
     message?: string;
     reason?: string;
+    hint?: string;
     details?: Record<string, unknown>;
     request?: string;
   };
@@ -288,8 +281,7 @@ function extractCSRFToken(ui: UIContainer): string | null {
   return csrfNode?.attributes.value as string || null;
 }
 
-// Note: According to OpenAPI spec (updateLoginFlowWithPasswordMethod) and kratos.md examples,
-// the identifier field name is always 'identifier'. password_identifier is deprecated.
+// Kratos expects the password login field to be named 'identifier'.
 
 /**
  * Get error messages from flow UI
@@ -353,15 +345,10 @@ function extractErrorMessage(error: KratosError, ui?: UIContainer): string {
   return 'An authentication error occurred';
 }
 
-// ============================================================================
-// API Functions (based on Kratos documentation)
-// ============================================================================
+// API helpers
 
 /**
- * Check if user has active session
- * Uses /sessions/whoami endpoint as shown in Kratos documentation
- * 
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/toSession
+ * Returns the active Kratos session if the user has one.
  */
 export async function checkSession(): Promise<Session | null> {
   try {
@@ -394,12 +381,7 @@ export async function checkSession(): Promise<Session | null> {
 }
 
 /**
- * Initiate login flow using browser endpoint
- * With Accept: application/json header, browser endpoint returns flow directly without redirect
- * As shown in Kratos quickstart documentation
- * 
- * @param options Optional parameters: refresh, return_to, aal
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserLoginFlow
+ * Starts a browser login flow.
  */
 export async function initiateLoginFlow(options?: {
   refresh?: boolean;
@@ -436,11 +418,7 @@ export async function initiateLoginFlow(options?: {
 }
 
 /**
- * Get login flow by ID
- * As shown in Kratos documentation
- * 
- * @param flowId The flow ID from URL query parameter
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/getLoginFlow
+ * Loads a login flow by id.
  */
 export async function getLoginFlow(flowId: string): Promise<LoginFlow> {
   const response = await fetch(
@@ -463,10 +441,7 @@ export async function getLoginFlow(flowId: string): Promise<LoginFlow> {
 }
 
 /**
- * Submit login form with CSRF token
- * According to Kratos quickstart documentation
- * 
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateLoginFlow
+ * Completes the password login flow.
  */
 export async function submitLogin(
   flow: LoginFlow,
@@ -483,8 +458,7 @@ export async function submitLogin(
     throw new Error('Email cannot be empty');
   }
 
-  // According to OpenAPI spec: required fields are method, password, identifier
-  // See: updateLoginFlowWithPasswordMethod schema
+  // updateLoginFlowWithPasswordMethod requires method, password and identifier
   const requestBody = {
     method: 'password',
     password: password,
@@ -524,12 +498,7 @@ export async function submitLogin(
 }
 
 /**
- * Initiate registration flow using browser endpoint
- * With Accept: application/json header, browser endpoint returns flow directly without redirect
- * As shown in Kratos quickstart documentation
- * 
- * @param options Optional parameters: return_to
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserRegistrationFlow
+ * Starts a browser registration flow.
  */
 export async function initiateRegistrationFlow(options?: {
   return_to?: string;
@@ -558,11 +527,7 @@ export async function initiateRegistrationFlow(options?: {
 }
 
 /**
- * Get registration flow by ID
- * As shown in Kratos documentation
- * 
- * @param flowId The flow ID from URL query parameter
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/getRegistrationFlow
+ * Loads a registration flow by id.
  */
 export async function getRegistrationFlow(flowId: string): Promise<RegistrationFlow> {
   const response = await fetch(
@@ -585,10 +550,7 @@ export async function getRegistrationFlow(flowId: string): Promise<RegistrationF
 }
 
 /**
- * Submit registration form with CSRF token
- * According to Kratos quickstart documentation
- * 
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateRegistrationFlow
+ * Completes the password registration flow.
  */
 export async function submitRegistration(
   flow: RegistrationFlow,
@@ -660,12 +622,7 @@ export async function submitRegistration(
 }
 
 /**
- * Logout user using browser endpoint
- * According to Kratos quickstart documentation
- * Uses logout_token in query parameter with Accept: application/json header
- * 
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserLogoutFlow
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateLogoutFlow
+ * Ends the current browser session via the logout flow.
  */
 export async function logout(): Promise<void> {
   // Step 1: Get logout flow
@@ -692,9 +649,7 @@ export async function logout(): Promise<void> {
     throw new Error('No logout token in logout flow');
   }
 
-  // Step 2: Use logout endpoint with token in query parameter
-  // According to OpenAPI spec: /self-service/logout?token=<logout_token>
-  // With Accept: application/json, returns 204 No Content on success
+  // Step 2: call /self-service/logout?token=<logout_token> which returns 204 on success
   const logoutResponse = await fetch(
     `${KRATOS_PUBLIC_URL}/self-service/logout?token=${logoutFlow.logout_token}`,
     {
@@ -721,10 +676,7 @@ export async function logout(): Promise<void> {
 // ============================================================================
 
 /**
- * Initiate verification flow using browser endpoint
- * 
- * @param options Optional parameters: return_to
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserVerificationFlow
+ * Starts a browser verification flow.
  */
 export async function initiateVerificationFlow(options?: {
   return_to?: string;
@@ -753,10 +705,7 @@ export async function initiateVerificationFlow(options?: {
 }
 
 /**
- * Get verification flow by ID
- * 
- * @param flowId The flow ID from URL query parameter
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/getVerificationFlow
+ * Loads a verification flow by id.
  */
 export async function getVerificationFlow(flowId: string): Promise<VerificationFlow> {
   const response = await fetch(
@@ -779,13 +728,7 @@ export async function getVerificationFlow(flowId: string): Promise<VerificationF
 }
 
 /**
- * Submit verification form
- * 
- * @param flow The verification flow
- * @param email Email to verify (optional, if not provided will use email from session)
- * @param token Token from email link (optional, for verifying from email)
- * @param method Method to use (default: 'link')
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateVerificationFlow
+ * Submits verification data to Kratos.
  */
 export async function submitVerification(
   flow: VerificationFlow,
@@ -845,10 +788,7 @@ export async function submitVerification(
 // ============================================================================
 
 /**
- * Initiate recovery flow using browser endpoint
- * 
- * @param options Optional parameters: return_to
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserRecoveryFlow
+ * Starts a browser recovery flow.
  */
 export async function initiateRecoveryFlow(options?: {
   return_to?: string;
@@ -877,10 +817,7 @@ export async function initiateRecoveryFlow(options?: {
 }
 
 /**
- * Get recovery flow by ID
- * 
- * @param flowId The flow ID from URL query parameter
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/getRecoveryFlow
+ * Loads a recovery flow by id.
  */
 export async function getRecoveryFlow(flowId: string): Promise<RecoveryFlow> {
   const response = await fetch(
@@ -903,12 +840,7 @@ export async function getRecoveryFlow(flowId: string): Promise<RecoveryFlow> {
 }
 
 /**
- * Submit recovery form
- * 
- * @param flow The recovery flow
- * @param email Email to recover
- * @param method Method to use (default: 'link')
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateRecoveryFlow
+ * Sends a recovery request for the supplied email.
  */
 export async function submitRecovery(
   flow: RecoveryFlow,
@@ -956,12 +888,7 @@ export async function submitRecovery(
 }
 
 /**
- * Submit recovery with new password (after clicking link from email)
- * 
- * @param flow The recovery flow
- * @param token Token from email link (should be in URL query parameter, but also passed here for validation)
- * @param newPassword New password to set
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateRecoveryFlow
+ * Completes recovery by setting a new password.
  */
 export async function submitRecoveryWithPassword(
   flow: RecoveryFlow,
@@ -977,7 +904,7 @@ export async function submitRecoveryWithPassword(
   const url = `${KRATOS_PUBLIC_URL}/self-service/recovery?flow=${flow.id}&token=${encodeURIComponent(token)}`;
 
   const requestBody = {
-    method: 'password',
+    method: 'link_recovery',
     password: newPassword,
     csrf_token: csrfToken,
   };
@@ -1014,11 +941,7 @@ export async function submitRecoveryWithPassword(
 // ============================================================================
 
 /**
- * Initiate settings flow using browser endpoint
- * Requires authenticated session
- * 
- * @param options Optional parameters: return_to
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/createBrowserSettingsFlow
+ * Starts a browser settings flow (requires an active session).
  */
 export async function initiateSettingsFlow(options?: {
   return_to?: string;
@@ -1047,11 +970,7 @@ export async function initiateSettingsFlow(options?: {
 }
 
 /**
- * Get settings flow by ID
- * Requires authenticated session
- * 
- * @param flowId The flow ID from URL query parameter
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/getSettingsFlow
+ * Loads a settings flow by id (requires an active session).
  */
 export async function getSettingsFlow(flowId: string): Promise<SettingsFlow> {
   const response = await fetch(
@@ -1074,11 +993,7 @@ export async function getSettingsFlow(flowId: string): Promise<SettingsFlow> {
 }
 
 /**
- * Update profile (traits) in settings flow
- * 
- * @param flow The settings flow
- * @param traits Updated identity traits
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateSettingsFlow
+ * Updates identity traits during the settings flow.
  */
 export async function updateProfile(
   flow: SettingsFlow,
@@ -1125,11 +1040,7 @@ export async function updateProfile(
 }
 
 /**
- * Change password in settings flow
- * 
- * @param flow The settings flow
- * @param password New password
- * @see https://www.ory.sh/docs/kratos/reference/api#operation/updateSettingsFlow
+ * Updates the password during the settings flow.
  */
 export async function changePassword(
   flow: SettingsFlow,
@@ -1177,6 +1088,3 @@ export async function changePassword(
 
 // Re-export types for convenience
 export type { Session as KratosSession };
-
-
-

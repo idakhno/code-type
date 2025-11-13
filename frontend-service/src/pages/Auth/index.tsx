@@ -35,7 +35,6 @@ const Auth = () => {
   const [registrationFlow, setRegistrationFlow] = useState<RegistrationFlow | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       const from = (location.state as { from?: Location })?.from?.pathname || "/practice";
@@ -43,35 +42,25 @@ const Auth = () => {
     }
   }, [isAuthenticated, navigate, location]);
 
-  // Initialize flows once on mount
-  // According to documentation, flows should be created on demand, not pre-initialized
-  // But we create them here for better UX (forms ready immediately)
   useEffect(() => {
     const initFlows = async () => {
       try {
-        // Check if flow ID is in URL (from Kratos redirect)
         const urlParams = new URLSearchParams(window.location.search);
         const flowId = urlParams.get('flow');
 
         if (flowId) {
-          // Try to get flow from URL - could be login or registration
-          // We'll try login first, then registration if it fails
           try {
             const flow = await getLoginFlow(flowId);
             setLoginFlow(flow);
-            // Also create registration flow
             const regFlow = await initiateRegistrationFlow();
             setRegistrationFlow(regFlow);
           } catch (error) {
-            // Not a login flow, try registration
             try {
               const flow = await getRegistrationFlow(flowId);
               setRegistrationFlow(flow);
-              // Also create login flow
               const loginFlow = await initiateLoginFlow();
               setLoginFlow(loginFlow);
             } catch (error2) {
-              // Flow expired or invalid, create new ones
               const [loginFlowData, regFlowData] = await Promise.all([
                 initiateLoginFlow(),
                 initiateRegistrationFlow(),
@@ -81,7 +70,6 @@ const Auth = () => {
             }
           }
         } else {
-          // No flow in URL, create new flows
           const [loginFlowData, regFlowData] = await Promise.all([
             initiateLoginFlow(),
             initiateRegistrationFlow(),
@@ -108,7 +96,6 @@ const Auth = () => {
       return;
     }
 
-    // Ensure we have a flow
     let currentFlow = loginFlow;
     if (!currentFlow) {
       setIsLoading(true);
@@ -122,7 +109,6 @@ const Auth = () => {
       }
     }
 
-    // Check if flow is expired
     if (new Date(currentFlow.expires_at) < new Date()) {
       setIsLoading(true);
       try {
@@ -139,7 +125,6 @@ const Auth = () => {
     try {
       await submitLogin(currentFlow, trimmedEmail, loginPassword);
       await refreshSession();
-      // Clear password field after successful login
       setLoginPassword("");
       toast.success("Logged in successfully!");
       const from = (location.state as { from?: Location })?.from?.pathname || "/practice";
@@ -148,7 +133,6 @@ const Auth = () => {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);
       
-      // If flow expired, try to get new flow
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
           const newFlow = await initiateLoginFlow();
@@ -158,7 +142,6 @@ const Auth = () => {
         }
       }
       
-      // Clear password on error for security
       setLoginPassword("");
     } finally {
       setIsLoading(false);
@@ -175,7 +158,6 @@ const Auth = () => {
       return;
     }
 
-    // Ensure we have a flow
     let currentFlow = registrationFlow;
     if (!currentFlow) {
       setIsLoading(true);
@@ -189,7 +171,6 @@ const Auth = () => {
       }
     }
 
-    // Check if flow is expired
     if (new Date(currentFlow.expires_at) < new Date()) {
       setIsLoading(true);
       try {
@@ -206,11 +187,9 @@ const Auth = () => {
     try {
       const response = await submitRegistration(currentFlow, trimmedEmail, signupPassword);
       await refreshSession();
-      // Clear all fields after successful registration
       setSignupPassword("");
       setSignupEmail("");
       
-      // Check if verification is required (continue_with)
       if (response.continue_with && response.continue_with.length > 0) {
         const verificationFlow = response.continue_with.find(cw => cw.action === 'show_verification_ui');
         if (verificationFlow?.flow) {
@@ -226,7 +205,6 @@ const Auth = () => {
       const errorMessage = error instanceof Error ? error.message : "Registration failed";
       toast.error(errorMessage);
       
-      // If flow expired, try to get new flow
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
           const newFlow = await initiateRegistrationFlow();
@@ -236,14 +214,12 @@ const Auth = () => {
         }
       }
       
-      // Clear password on error for security
       setSignupPassword("");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Show loading state while initializing flows
   if (isInitializing) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -330,6 +306,7 @@ const Auth = () => {
                   </Button>
                   <div className="mt-4 text-center">
                     <Button
+                      type="button"
                       variant="link"
                       onClick={() => navigate("/recovery")}
                       className="text-sm"

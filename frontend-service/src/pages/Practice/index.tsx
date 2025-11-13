@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Code2, LogOut, History, Pause, Play, Square, RotateCcw } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { ThemeToggle } from "@/features/theme-toggle";
-import { CodeDisplay, StatsPanel } from "@/features/practice";
+import { TypingEditor, StatsPanel } from "@/features/practice";
 import { practiceModel } from "@/entities/practice";
 import { practiceSessionModel } from "@/processes/practice-session";
 import {
@@ -169,11 +169,13 @@ const Practice = () => {
             timeElapsed={session.timeElapsed}
           />
 
-          <CodeDisplay
+          <TypingEditor
             code={session.snippet}
             language={session.language}
             currentIndex={session.currentIndex}
             errors={session.errors}
+            isActive={session.isStarted && !session.isPaused && !session.isFinished}
+            onInput={session.handleInput}
           />
 
           {!session.isStarted && (

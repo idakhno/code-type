@@ -1,54 +1,108 @@
-import type { HistoryEntry } from "./types";
+import type { HistoryEntry, HistoryInput } from "./types";
 
-const HISTORY_KEY = "typingHistory";
-const HISTORY_LIMIT = 50;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4455";
+const HISTORY_ENDPOINT = `${API_BASE_URL}/api/private/history`;
 
-const readHistory = (): HistoryEntry[] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
+interface HistoryResponse {
+  id: string;
+  language: string;
+  wpm: number;
+  accuracy: number;
+  errors: number;
+  time: number;
+  date: string;
+  created_at?: string;
+  completed_at?: string;
+}
 
-  const stored = window.localStorage.getItem(HISTORY_KEY);
-  if (!stored) {
-    return [];
-  }
+interface ErrorResponse {
+  error?: string;
+  message?: string;
+  code?: string;
+}
 
+const parseHistoryEntry = (entry: HistoryResponse): HistoryEntry => ({
+  id: entry.id,
+  language: entry.language as HistoryEntry["language"],
+  wpm: entry.wpm,
+  accuracy: entry.accuracy,
+  errors: entry.errors,
+  time: entry.time,
+  date: entry.date,
+  createdAt: entry.created_at,
+  completedAt: entry.completed_at,
+});
+
+const parseError = async (response: Response): Promise<string> => {
   try {
-    const parsed = JSON.parse(stored) as HistoryEntry[];
-    return Array.isArray(parsed) ? parsed : [];
+    const data = (await response.json()) as ErrorResponse;
+    if (data?.message) {
+      return data.message;
+    }
   } catch {
-    return [];
+    // Ignore JSON parse errors and fall back to status text
   }
+  return response.statusText || "Unexpected error";
 };
 
-const writeHistory = (entries: HistoryEntry[]): void => {
-  if (typeof window === "undefined") {
-    return;
+const getHistory = async (limit = 50): Promise<HistoryEntry[]> => {
+  const url = new URL(HISTORY_ENDPOINT);
+  url.searchParams.set("limit", String(limit));
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
   }
 
-  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, HISTORY_LIMIT)));
+  const data = (await response.json()) as HistoryResponse[];
+  return data.map(parseHistoryEntry);
 };
 
-const getHistory = (): HistoryEntry[] => {
-  return readHistory();
-};
+const addHistoryEntry = async (entry: HistoryInput): Promise<HistoryEntry> => {
+  const response = await fetch(HISTORY_ENDPOINT, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      language: entry.language,
+      wpm: entry.wpm,
+      accuracy: entry.accuracy,
+      errors: entry.errors,
+      time: entry.time,
+      date: entry.date,
+    }),
+  });
 
-const addHistoryEntry = (entry: HistoryEntry): void => {
-  if (typeof window === "undefined") {
-    return;
+  if (!response.ok) {
+    throw new Error(await parseError(response));
   }
 
-  const history = readHistory();
-  history.unshift(entry);
-  writeHistory(history);
+  const data = (await response.json()) as HistoryResponse;
+  return parseHistoryEntry(data);
 };
 
-const clearHistory = (): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
+const clearHistory = async (): Promise<void> => {
+  const response = await fetch(HISTORY_ENDPOINT, {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
 
-  window.localStorage.removeItem(HISTORY_KEY);
+  if (!response.ok && response.status !== 204) {
+    throw new Error(await parseError(response));
+  }
 };
 
 export { getHistory, addHistoryEntry, clearHistory };
