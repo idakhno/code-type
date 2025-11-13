@@ -18,8 +18,10 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	appconfig "code-type/backend/internal/config"
+	appdb "code-type/backend/internal/db"
 	"code-type/backend/internal/http/handlers"
 	appmiddleware "code-type/backend/internal/http/middleware"
+	"code-type/backend/internal/storage"
 )
 
 func main() {
@@ -27,6 +29,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db, err := appdb.ConnectAndMigrate(ctx, cfg.DatabaseDSN)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	historyRepo := storage.NewHistoryRepository(db)
+	historyHandler := handlers.NewHistoryHandler(historyRepo)
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID)
@@ -42,7 +56,9 @@ func main() {
 
 		r.Group(func(private chi.Router) {
 			private.Use(appmiddleware.AuthHeaderMiddleware)
-			private.Route("/private", handlers.RegisterPrivateRoutes)
+			private.Route("/private", func(pr chi.Router) {
+				handlers.RegisterPrivateRoutes(pr, historyHandler)
+			})
 		})
 	})
 

@@ -108,6 +108,37 @@ All colors MUST be HSL.
   code, pre {
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   }
+
+  .cm-typing-editor .cm-content {
+    padding: 1.5rem;
+    color: hsl(var(--foreground));
+  }
+
+  .cm-typing-editor .cm-editor {
+    background-color: transparent;
+  }
+
+  .cm-typing-editor .cm-scroller {
+    background-color: transparent;
+  }
+
+  .cm-typing-editor .cm-typed {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .cm-typing-editor .cm-error-char {
+    color: hsl(var(--destructive));
+    background-color: hsla(0, 84%, 60%, 0.15);
+  }
+
+  .cm-typing-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.4em;
+    background-color: hsl(var(--code-cursor));
+    animation: pulse-cursor 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    vertical-align: bottom;
+  }
 }
 
 @layer utilities {

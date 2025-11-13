@@ -1,6 +1,13 @@
-﻿import { useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Code2, ArrowLeft, Trash2, TrendingUp } from "lucide-react";
+import {
+  Code2,
+  ArrowLeft,
+  Trash2,
+  TrendingUp,
+  AlertTriangle,
+  History as HistoryIcon,
+} from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { ThemeToggle } from "@/features/theme-toggle";
 import {
@@ -15,15 +22,70 @@ import { Card } from "@/shared/ui/card";
 import { toast } from "sonner";
 import { historyModel } from "@/entities/history";
 
+const getErrorMessage = (message?: string | null) => {
+  if (!message) {
+    return "Something went wrong while loading your history. Please try again.";
+  }
+
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("failed to fetch") || normalized.includes("network")) {
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+
+  if (normalized.includes("failed to load history")) {
+    return "We couldn't load your history right now. Please try again.";
+  }
+
+  return message;
+};
+
 const History = () => {
   const navigate = useNavigate();
-  const [history, setHistory] = useState<historyModel.HistoryEntry[]>(() => historyModel.getHistory());
+  const [history, setHistory] = useState<historyModel.HistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const clearHistory = () => {
-    historyModel.clearHistory();
-    setHistory([]);
-    toast.success("History cleared");
-  };
+  const loadHistory = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const entries = await historyModel.getHistory();
+      setHistory(entries);
+    } catch (error) {
+      console.error("Failed to load history:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to load history. Please try again.";
+      const userMessage = getErrorMessage(message);
+      setErrorMessage(userMessage);
+      toast.error(userMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const clearHistory = useCallback(async () => {
+    if (history.length === 0) {
+      return;
+    }
+    setIsClearing(true);
+    try {
+      await historyModel.clearHistory();
+      setHistory([]);
+      toast.success("History cleared");
+    } catch (error) {
+      console.error("Failed to clear history:", error);
+      const message = error instanceof Error ? error.message : "Failed to clear history";
+      toast.error(message);
+    } finally {
+      setIsClearing(false);
+    }
+  }, [history.length]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -36,13 +98,23 @@ const History = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const avgWpm = history.length > 0
-    ? Math.round(history.reduce((sum, entry) => sum + entry.wpm, 0) / history.length)
-    : 0;
+  const avgWpm =
+    history.length > 0
+      ? Math.round(history.reduce((sum, entry) => sum + entry.wpm, 0) / history.length)
+      : 0;
 
-  const avgAccuracy = history.length > 0
-    ? Math.round(history.reduce((sum, entry) => sum + entry.accuracy, 0) / history.length)
-    : 0;
+  const avgAccuracy =
+    history.length > 0
+      ? Math.round(history.reduce((sum, entry) => sum + entry.accuracy, 0) / history.length)
+      : 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading history...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,6 +142,23 @@ const History = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="space-y-6">
+          {errorMessage && history.length > 0 && (
+            <Card className="border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5" />
+                <span>{errorMessage}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadHistory()}
+                disabled={isLoading}
+              >
+                Retry
+              </Button>
+            </Card>
+          )}
+
           {history.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-4">
@@ -108,11 +197,12 @@ const History = () => {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={clearHistory}
+                  onClick={() => void clearHistory()}
                   className="gap-2"
+                  disabled={isClearing}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Clear History
+                  {isClearing ? "Clearing..." : "Clear History"}
                 </Button>
               </div>
 
@@ -129,8 +219,8 @@ const History = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history.map((entry, index) => (
-                      <TableRow key={index}>
+                    {history.map((entry) => (
+                      <TableRow key={entry.id}>
                         <TableCell className="text-muted-foreground text-sm">
                           {formatDate(entry.date)}
                         </TableCell>
@@ -157,12 +247,34 @@ const History = () => {
                 </Table>
               </Card>
             </>
+          ) : errorMessage ? (
+            <Card className="p-12 text-center space-y-4">
+              <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+              <div>
+                <h2 className="text-lg font-semibold">Unable to load history</h2>
+                <p className="text-sm text-muted-foreground mt-1">{errorMessage}</p>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => void loadHistory()}
+                  disabled={isLoading}
+                >
+                  Retry
+                </Button>
+                <Button onClick={() => navigate("/practice")}>Go To Practice</Button>
+              </div>
+            </Card>
           ) : (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground mb-4">No typing history yet</p>
-              <Button onClick={() => navigate("/practice")}>
-                Start Your First Test
-              </Button>
+            <Card className="p-12 text-center space-y-4">
+              <HistoryIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+              <div>
+                <h2 className="text-lg font-semibold">No typing history yet</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Complete your first test to see your progress over time.
+                </p>
+              </div>
+              <Button onClick={() => navigate("/practice")}>Start Your First Test</Button>
             </Card>
           )}
         </div>

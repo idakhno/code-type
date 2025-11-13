@@ -58,6 +58,24 @@ services:
       - ./auth-service/kratos:/etc/config:ro
     restart: unless-stopped
 
+  kratos-courier:
+    image: oryd/kratos:v1.2.0
+    container_name: code-type-kratos-courier
+    depends_on:
+      kratos:
+        condition: service_started
+    environment:
+      DSN: ${KRATOS_DSN}
+      LOG_LEVEL: ${KRATOS_LOG_LEVEL:-info}
+    command:
+      - courier
+      - watch
+      - --config
+      - /etc/config/kratos.yml
+    volumes:
+      - ./auth-service/kratos:/etc/config:ro
+    restart: unless-stopped
+
   oathkeeper:
     image: oryd/oathkeeper:v0.40.6
     container_name: code-type-oathkeeper
@@ -65,7 +83,7 @@ services:
       kratos:
         condition: service_started
     environment:
-      LOG_LEVEL: ${OATHKEEPER_LOG_LEVEL:-info}
+      LOG_LEVEL: ${OATHKEEPER_LOG_LEVEL:-debug}
     command:
       - serve
       - proxy

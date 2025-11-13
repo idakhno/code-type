@@ -4,11 +4,10 @@ dsn: ${DSN}
 
 serve:
   public:
-    base_url: http://127.0.0.1:4433/
+    base_url: http://localhost:4433/
     cors:
       enabled: true
       allowed_origins:
-        - http://127.0.0.1:3000
         - http://localhost:3000
       allowed_methods:
         - POST
@@ -27,9 +26,8 @@ serve:
     base_url: http://kratos:4434/
 
 selfservice:
-  default_browser_return_url: http://127.0.0.1:3000/
+  default_browser_return_url: http://localhost:3000/
   allowed_return_urls:
-    - http://127.0.0.1:3000
     - http://localhost:3000
 
   methods:
@@ -48,36 +46,38 @@ selfservice:
 
   flows:
     error:
-      ui_url: http://127.0.0.1:3000/error
+      ui_url: http://localhost:3000/error
 
     settings:
-      ui_url: http://127.0.0.1:3000/account/settings
+      ui_url: http://localhost:3000/account/settings
       privileged_session_max_age: 15m
       required_aal: highest_available
 
     recovery:
       enabled: true
-      ui_url: http://127.0.0.1:3000/recovery
+      ui_url: http://localhost:3000/recovery
       use: code
+      after:
+        default_browser_return_url: http://localhost:3000/auth
 
     verification:
       enabled: true
-      ui_url: http://127.0.0.1:3000/verification
+      ui_url: http://localhost:3000/verification
       use: code
       after:
-        default_browser_return_url: http://127.0.0.1:3000/
+        default_browser_return_url: http://localhost:3000/
 
     logout:
       after:
-        default_browser_return_url: http://127.0.0.1:3000/auth
+        default_browser_return_url: http://localhost:3000/auth
 
     login:
-      ui_url: http://127.0.0.1:3000/auth
+      ui_url: http://localhost:3000/auth
       lifespan: 10m
 
     registration:
       lifespan: 10m
-      ui_url: http://127.0.0.1:3000/auth
+      ui_url: http://localhost:3000/auth
       after:
         password:
           hooks:
@@ -109,9 +109,14 @@ identity:
     - id: default
       url: file:///etc/config/identity.schema.json
 
+session:
+  cookie:
+    domain: localhost
+    same_site: Lax
+
 courier:
   smtp:
-    connection_uri: smtp://mailhog:1025/?skip_ssl_verify=true
+    connection_uri: smtp://mailhog:1025/?skip_ssl_verify=true&disable_starttls=true
 
 feature_flags:
   use_continue_with_transitions: true

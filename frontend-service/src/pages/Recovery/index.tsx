@@ -31,46 +31,38 @@ const Recovery = () => {
   const flowId = searchParams.get("flow");
   const token = searchParams.get("token");
 
-  // Initialize flow
   useEffect(() => {
     const initFlow = async () => {
       try {
         if (flowId) {
-          // Get existing flow from URL
           try {
             const flow = await getRecoveryFlow(flowId);
             setRecoveryFlow(flow);
             
-            // Check flow state
             if (flow.state === 'sent_email') {
               setIsEmailSent(true);
-            } else if (flow.state === 'passed_challenge' && token) {
-              // Ready to reset password
             }
           } catch (error) {
-            // Flow expired or invalid, create new one
             const newFlow = await initiateRecoveryFlow();
             setRecoveryFlow(newFlow);
           }
         } else if (token) {
-          // Token present but no flow ID - need to create flow
-          // Kratos will handle token verification when we submit
           const flow = await initiateRecoveryFlow();
           setRecoveryFlow(flow);
         } else {
-          // Create new recovery flow
           const flow = await initiateRecoveryFlow();
           setRecoveryFlow(flow);
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to initialize recovery flow");
+        const errorMessage = error instanceof Error ? error.message : "Failed to initialize recovery flow";
+        toast.error(errorMessage);
         console.error("Failed to initialize recovery flow:", error);
       } finally {
         setIsInitializing(false);
       }
     };
     initFlow();
-  }, [flowId, token]);
+  }, [flowId, token, navigate]);
 
   const handleRequestRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +87,6 @@ const Recovery = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send recovery email");
       
-      // If flow expired, try to get new flow
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
@@ -136,7 +127,6 @@ const Recovery = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to reset password");
       
-      // If flow expired, try to get new flow
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
@@ -146,6 +136,20 @@ const Recovery = () => {
           console.error("Failed to refresh recovery flow:", e);
         }
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUseDifferentEmail = async () => {
+    setIsLoading(true);
+    try {
+      const newFlow = await initiateRecoveryFlow();
+      setRecoveryFlow(newFlow);
+      setEmail("");
+      setIsEmailSent(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to start a new recovery flow");
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +193,48 @@ const Recovery = () => {
     );
   }
 
-  if (isEmailSent || (token && recoveryFlow)) {
+  if (!token && isEmailSent) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
+
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Mail className="h-16 w-16 text-primary" />
+            </div>
+            <CardTitle>Check your inbox</CardTitle>
+            <CardDescription>
+              We sent a recovery link to {email || "your email"}. Follow the instructions in the email
+              to reset your password.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => navigate("/auth")}
+            >
+              Back to Login
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={handleUseDifferentEmail}
+              disabled={isLoading}
+            >
+              Use a different email
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (token && recoveryFlow) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="absolute top-4 right-4">

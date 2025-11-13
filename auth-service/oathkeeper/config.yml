@@ -3,10 +3,22 @@
 # See: https://www.ory.sh/docs/oathkeeper/reference/configuration
 # See: https://www.ory.sh/docs/oathkeeper/authentication#cookie-session
 
+log:
+  level: debug
+  leak_sensitive_values: true
+
 serve:
   proxy:
     port: 4455
     host: 0.0.0.0
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:3000
+        - http://127.0.0.1:3000
+      allowed_methods: ["GET", "POST", "DELETE"]
+      allowed_headers: ["Authorization", "Content-Type"]
+      allow_credentials: true
   api:
     port: 4456
     host: 0.0.0.0
@@ -21,6 +33,10 @@ authenticators:
     config:
       check_session_url: http://kratos:4433/sessions/whoami
       subject_from: identity.id
+      extra_from: "@this"
+      preserve_path: true
+      only:
+        - ory_kratos_session
   anonymous:
     enabled: true
 
@@ -33,5 +49,7 @@ mutators:
     enabled: true
     config:
       headers:
-        X-User-Id: '{{ print .Session.Subject }}'
+        X-User-Id: '{{ print .Subject }}'
+  noop:
+    enabled: true
 

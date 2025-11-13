@@ -1,3 +1,3 @@
-export { CodeDisplay } from "./ui/CodeDisplay";
 export { StatsPanel } from "./ui/StatsPanel";
+export { TypingEditor } from "./ui/TypingEditor";
 

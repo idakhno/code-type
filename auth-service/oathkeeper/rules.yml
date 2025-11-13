@@ -4,29 +4,31 @@
 
 - id: public-api
   match:
-    url: http://oathkeeper:4455/api/public/<**>
+    url: <http|https>://<[^/]+>/api/public/<.*>
     methods: ["GET", "OPTIONS"]
   authenticators:
-    - anonymous
-  authorizer: allow
+    - handler: anonymous
+  authorizer:
+    handler: allow
   mutators:
-    - id: noop
+    - handler: noop
   upstream:
     url: http://backend:8080/api/public
     strip_path: /api/public
 
 - id: private-api
   match:
-    url: http://oathkeeper:4455/api/private/<**>
-    methods: ["GET", "OPTIONS"]
+    url: <http|https>://<[^/]+>/api/private/<.*>
+    methods: ["GET", "POST", "DELETE", "OPTIONS"]
   authenticators:
-    - cookie_session
-  authorizer: allow
+    - handler: cookie_session
+  authorizer:
+    handler: allow
   mutators:
-    - id: header
+    - handler: header
       config:
         headers:
-          X-User-Id: '{{ print .Session.Subject }}'
+          X-User-Id: '{{ print .Subject }}'
   upstream:
     url: http://backend:8080/api/private
     strip_path: /api/private
