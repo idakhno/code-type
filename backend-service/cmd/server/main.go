@@ -21,6 +21,8 @@ import (
 	appdb "code-type/backend/internal/db"
 	"code-type/backend/internal/http/handlers"
 	appmiddleware "code-type/backend/internal/http/middleware"
+	"code-type/backend/internal/kratos"
+	"code-type/backend/internal/services/account"
 	"code-type/backend/internal/storage"
 )
 
@@ -41,6 +43,9 @@ func main() {
 
 	historyRepo := storage.NewHistoryRepository(db)
 	historyHandler := handlers.NewHistoryHandler(historyRepo)
+	kratosAdminClient := kratos.NewAdminClient(cfg.KratosAdminURL)
+	accountService := account.NewService(kratosAdminClient, historyRepo)
+	accountHandler := handlers.NewAccountHandler(accountService)
 
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID)
@@ -57,7 +62,7 @@ func main() {
 		r.Group(func(private chi.Router) {
 			private.Use(appmiddleware.AuthHeaderMiddleware)
 			private.Route("/private", func(pr chi.Router) {
-				handlers.RegisterPrivateRoutes(pr, historyHandler)
+				handlers.RegisterPrivateRoutes(pr, historyHandler, accountHandler)
 			})
 		})
 	})

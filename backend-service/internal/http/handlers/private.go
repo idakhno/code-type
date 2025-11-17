@@ -12,9 +12,10 @@ import (
 
 // RegisterPrivateRoutes registers protected endpoints that require authentication.
 // These routes are wrapped with AuthHeaderMiddleware which validates X-User-Id header.
-func RegisterPrivateRoutes(router chi.Router, historyHandler *HistoryHandler) {
+func RegisterPrivateRoutes(router chi.Router, historyHandler *HistoryHandler, accountHandler *AccountHandler) {
 	router.Get("/me", handleMe)
 	router.Route("/history", historyHandler.RegisterRoutes)
+	router.Delete("/account", accountHandler.DeleteAccount)
 }
 
 // handleMe returns the authenticated user's ID from request context.

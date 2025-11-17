@@ -40,26 +40,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Only check session once on mount - no periodic polling
-    // Session will be checked:
-    // 1. On page load (here)
-    // 2. After login/registration (explicit call)
-    // 3. On navigation to protected routes (if needed)
+    // Perform the initial session check once when the provider mounts.
+    // Subsequent refreshes are triggered after auth flows or before entering protected routes.
     refreshSession();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks-exhaustive-deps
 
-  const logout = async () => {
+  const logout = async (options?: { redirect?: boolean }) => {
     try {
       await kratosLogout();
     } catch (error) {
-      // Log error but still clear session and redirect
-      // Logout might have succeeded on server even if request failed
+      // Log the failure, but still clear local state—the backend may have completed the logout.
       console.error('Logout error:', error);
       toast.error(error instanceof Error ? error.message : 'Logout failed');
     } finally {
-      // Always clear session on frontend and redirect
+      // Always clear the local session, then redirect unless explicitly disabled.
       setSession(null);
-      navigate('/auth');
+      if (options?.redirect ?? true) {
+        navigate('/auth', { replace: true, state: { via: 'logout' } });
+      }
     }
   };
 

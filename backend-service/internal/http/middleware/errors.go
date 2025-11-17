@@ -6,14 +6,14 @@ import (
 	"net/http"
 )
 
-// ErrorResponse represents a standardized error response
+// ErrorResponse represents a standardized error response.
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
 	Code    string `json:"code,omitempty"`
 }
 
-// ErrorHandler middleware catches panics and converts them to JSON error responses
+// ErrorHandler middleware catches panics and converts them to JSON error responses.
 func ErrorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -27,7 +27,7 @@ func ErrorHandler(next http.Handler) http.Handler {
 	})
 }
 
-// writeErrorResponse writes a JSON error response
+// writeErrorResponse writes a JSON error response.
 func writeErrorResponse(w http.ResponseWriter, statusCode int, message, code string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -43,13 +43,13 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message, code str
 	}
 }
 
-// WriteError is a helper function to write error responses from handlers
+// WriteError is a helper for writing JSON error responses from handlers.
 func WriteError(w http.ResponseWriter, statusCode int, message string) {
 	code := getErrorCode(statusCode)
 	writeErrorResponse(w, statusCode, message, code)
 }
 
-// getErrorCode returns a standardized error code based on HTTP status
+// getErrorCode returns a standardized error code based on HTTP status.
 func getErrorCode(statusCode int) string {
 	switch {
 	case statusCode >= 500:

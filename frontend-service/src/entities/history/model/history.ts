@@ -40,7 +40,7 @@ const parseError = async (response: Response): Promise<string> => {
       return data.message;
     }
   } catch {
-    // Ignore JSON parse errors and fall back to status text
+    // Ignore JSON parse errors and fall back to the status text.
   }
   return response.statusText || "Unexpected error";
 };

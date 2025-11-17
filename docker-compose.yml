@@ -108,6 +108,7 @@ services:
       GO_ENV: ${GO_ENV:-development}
       HTTP_PORT: ${BACKEND_HTTP_PORT:-8080}
       KRATOS_PUBLIC_URL: ${KRATOS_PUBLIC_URL:-http://oathkeeper:4455/.ory/kratos/public}
+      KRATOS_ADMIN_URL: ${KRATOS_ADMIN_URL:-http://kratos:4434}
       DATABASE_DSN: ${BACKEND_DATABASE_DSN}
     ports:
       - "8080:8080"
