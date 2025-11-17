@@ -214,7 +214,7 @@ export function logError(error: AppError, context?: string): void {
   }
 
   if (import.meta.env.PROD) {
-    // TODO: integrate with error tracking solution
+    // TODO: Wire this up to the error tracking vendor once we pick one.
   }
 }
 

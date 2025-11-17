@@ -20,6 +20,11 @@ import {
   type RegistrationFlow,
 } from "@/shared/lib/kratos";
 
+type LocationState = {
+  from?: Location;
+  via?: string;
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,14 +40,27 @@ const Auth = () => {
   const [registrationFlow, setRegistrationFlow] = useState<RegistrationFlow | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      const from = (location.state as { from?: Location })?.from?.pathname || "/practice";
-      navigate(from, { replace: true });
+  const locationState = location.state as LocationState | null;
+  const getReturnPath = () => {
+    if (locationState?.via === "logout") {
+      return "/practice";
     }
-  }, [isAuthenticated, navigate, location]);
+    return locationState?.from?.pathname || "/practice";
+  };
 
   useEffect(() => {
+    if (isAuthenticated) {
+      navigate(getReturnPath(), { replace: true });
+    }
+  }, [isAuthenticated, navigate, locationState]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsInitializing(false);
+      return;
+    }
+
+    let isActive = true;
     const initFlows = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -51,20 +69,25 @@ const Auth = () => {
         if (flowId) {
           try {
             const flow = await getLoginFlow(flowId);
+            if (!isActive) return;
             setLoginFlow(flow);
             const regFlow = await initiateRegistrationFlow();
+            if (!isActive) return;
             setRegistrationFlow(regFlow);
           } catch (error) {
             try {
               const flow = await getRegistrationFlow(flowId);
+              if (!isActive) return;
               setRegistrationFlow(flow);
               const loginFlow = await initiateLoginFlow();
+              if (!isActive) return;
               setLoginFlow(loginFlow);
             } catch (error2) {
               const [loginFlowData, regFlowData] = await Promise.all([
                 initiateLoginFlow(),
                 initiateRegistrationFlow(),
               ]);
+              if (!isActive) return;
               setLoginFlow(loginFlowData);
               setRegistrationFlow(regFlowData);
             }
@@ -74,18 +97,27 @@ const Auth = () => {
             initiateLoginFlow(),
             initiateRegistrationFlow(),
           ]);
+          if (!isActive) return;
           setLoginFlow(loginFlowData);
           setRegistrationFlow(regFlowData);
         }
       } catch (error) {
+        if (!isActive) return;
         toast.error(error instanceof Error ? error.message : "Failed to initialize flows");
         console.error("Failed to initialize flows:", error);
       } finally {
-        setIsInitializing(false);
+        if (isActive) {
+          setIsInitializing(false);
+        }
       }
     };
+
     initFlows();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,8 +159,7 @@ const Auth = () => {
       await refreshSession();
       setLoginPassword("");
       toast.success("Logged in successfully!");
-      const from = (location.state as { from?: Location })?.from?.pathname || "/practice";
-      navigate(from, { replace: true });
+      navigate(getReturnPath(), { replace: true });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);

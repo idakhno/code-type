@@ -2,9 +2,7 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Design tokens for the app. Keep palette values in HSL so light/dark themes stay in sync. */
 
 @layer base {
   :root {
@@ -95,7 +93,7 @@ All colors MUST be HSL.
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Fix autofill colors for inputs */
+  /* Keep browser autofill colors aligned with the current theme. */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,

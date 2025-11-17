@@ -13,6 +13,7 @@ import (
 type Config struct {
 	HTTPPort        string // Server listening port
 	KratosPublicURL string // Kratos public API endpoint (via Oathkeeper proxy)
+	KratosAdminURL  string // Kratos admin API endpoint (direct)
 	DatabaseDSN     string // PostgreSQL connection string
 }
 
@@ -22,11 +23,16 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPPort:        getEnvOrDefault("HTTP_PORT", "8080"),
 		KratosPublicURL: os.Getenv("KRATOS_PUBLIC_URL"),
+		KratosAdminURL:  os.Getenv("KRATOS_ADMIN_URL"),
 		DatabaseDSN:     os.Getenv("DATABASE_DSN"),
 	}
 
 	if cfg.KratosPublicURL == "" {
 		return Config{}, fmt.Errorf("KRATOS_PUBLIC_URL is required")
+	}
+
+	if cfg.KratosAdminURL == "" {
+		return Config{}, fmt.Errorf("KRATOS_ADMIN_URL is required")
 	}
 
 	if cfg.DatabaseDSN == "" {

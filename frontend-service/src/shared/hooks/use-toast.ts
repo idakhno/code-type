@@ -83,8 +83,8 @@ export const reducer = (state: State, action: Action): State => {
     case ACTION_TYPES.DISMISS_TOAST: {
       const { toastId } = action;
 
-      // Side effect: schedule toast removal after animation delay.
-      // Kept in reducer for simplicity, but could be extracted to separate action.
+      // Schedule toast removal after the exit animation finishes.
+      // Keeping it here is simpler than introducing a second action just for cleanup.
       if (toastId) {
         addToRemoveQueue(toastId);
       } else {

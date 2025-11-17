@@ -267,12 +267,10 @@ export interface SettingsFlow {
   transient_payload?: Record<string, unknown>;
 }
 
-// ============================================================================
 // Utilities
-// ============================================================================
 
 /**
- * Extract CSRF token from flow UI nodes
+ * Extracts the CSRF token from the flow UI nodes.
  */
 function extractCSRFToken(ui: UIContainer): string | null {
   const csrfNode = ui.nodes.find(
@@ -281,20 +279,18 @@ function extractCSRFToken(ui: UIContainer): string | null {
   return csrfNode?.attributes.value as string || null;
 }
 
-// Kratos expects the password login field to be named 'identifier'.
-
 /**
- * Get error messages from flow UI
+ * Collects error messages attached to the flow UI.
  */
 function getErrorMessages(ui: UIContainer): UIText[] {
   const messages: UIText[] = [];
   
-  // Messages from flow level
+  // Messages attached directly to the flow.
   if (ui.messages) {
     messages.push(...ui.messages);
   }
   
-  // Messages from nodes
+  // Messages emitted by individual form nodes.
   ui.nodes.forEach((node) => {
     if (node.messages) {
       messages.push(...node.messages);
@@ -305,7 +301,7 @@ function getErrorMessages(ui: UIContainer): UIText[] {
 }
 
 /**
- * Check if error is a Kratos error response
+ * Returns true when the payload matches the Kratos error schema.
  */
 function isKratosError(data: unknown): data is KratosError {
   return (
@@ -316,10 +312,10 @@ function isKratosError(data: unknown): data is KratosError {
 }
 
 /**
- * Extract user-friendly error message from Kratos error
+ * Renders a user-friendly error message from a Kratos error payload.
  */
 function extractErrorMessage(error: KratosError, ui?: UIContainer): string {
-  // Try to get message from flow UI first (most user-friendly)
+  // Prefer UI messages because they tend to be the most specific.
   if (ui) {
     const messages = getErrorMessages(ui);
     if (messages.length > 0) {
@@ -327,12 +323,12 @@ function extractErrorMessage(error: KratosError, ui?: UIContainer): string {
     }
   }
 
-  // Check top-level error_hint first (most specific)
+  // Fall back to the top-level hint next.
   if (error.error_hint) {
     return error.error_hint;
   }
   
-  // Try Kratos error response
+  // Then inspect the structured error payload.
   if (error.error?.message) {
     return error.error.message;
   }
@@ -341,14 +337,14 @@ function extractErrorMessage(error: KratosError, ui?: UIContainer): string {
     return error.error.reason;
   }
 
-  // Fallback to generic message
+  // Otherwise return a generic message.
   return 'An authentication error occurred';
 }
 
 // API helpers
 
 /**
- * Returns the active Kratos session if the user has one.
+ * Returns the active Kratos session if the user currently has one.
  */
 export async function checkSession(): Promise<Session | null> {
   try {
@@ -359,12 +355,12 @@ export async function checkSession(): Promise<Session | null> {
       },
     });
 
-    // 401 means no active session - not an error
+    // 401 means there is no active session, which is acceptable.
     if (response.status === 401) {
       return null;
     }
 
-    // 403 means session requires higher AAL (e.g. AAL2)
+    // 403 indicates the session needs a higher AAL (for example AAL2).
     if (response.status === 403) {
       return null;
     }
@@ -375,7 +371,7 @@ export async function checkSession(): Promise<Session | null> {
 
     return await response.json();
   } catch (error) {
-    // Network errors or other errors mean we can't check session
+    // Network errors simply mean we cannot verify the session right now.
     return null;
   }
 }
@@ -441,7 +437,7 @@ export async function getLoginFlow(flowId: string): Promise<LoginFlow> {
 }
 
 /**
- * Completes the password login flow.
+ * Completes the password login flow with the password method.
  */
 export async function submitLogin(
   flow: LoginFlow,
@@ -458,7 +454,7 @@ export async function submitLogin(
     throw new Error('Email cannot be empty');
   }
 
-  // updateLoginFlowWithPasswordMethod requires method, password and identifier
+  // The password strategy expects method, password, and identifier.
   const requestBody = {
     method: 'password',
     password: password,
@@ -479,11 +475,11 @@ export async function submitLogin(
   const data = await response.json();
 
   if (!response.ok) {
-    // Check if it's a flow with errors (expired, etc.)
+    // Kratos may return the flow again with validation errors.
     if (isKratosError(data)) {
       throw new Error(extractErrorMessage(data, 'ui' in data ? (data as unknown as LoginFlow).ui : undefined));
     }
-    // If response is a LoginFlow with errors, extract messages
+    // Some errors arrive as a flow payload with UI messages.
     if ('ui' in data && typeof data === 'object' && data !== null) {
       const flowData = data as LoginFlow;
       const messages = getErrorMessages(flowData.ui);
@@ -567,7 +563,7 @@ export async function submitRegistration(
     throw new Error('Email cannot be empty');
   }
 
-  // Build traits object - only email is required
+  // Only the email trait is required for registration.
   const traits = {
     email: trimmedEmail,
   };
@@ -592,19 +588,19 @@ export async function submitRegistration(
   const data = await response.json();
 
   if (!response.ok) {
-    // Log full error for debugging
+    // Log the payload for easier debugging.
     console.error('Registration error:', {
       status: response.status,
       statusText: response.statusText,
       data: data
     });
 
-    // Check if it's a flow with errors (expired, etc.)
+    // Kratos may resend the flow with UI-level validation errors.
     if ('ui' in data && typeof data === 'object' && data !== null) {
       const flowData = data as RegistrationFlow;
       const messages = getErrorMessages(flowData.ui);
       if (messages.length > 0) {
-        // Log all error messages
+        // Log every message before surfacing the first one.
         console.error('Registration flow errors:', messages);
         throw new Error(messages.map(m => m.text).join('; '));
       }
@@ -625,7 +621,7 @@ export async function submitRegistration(
  * Ends the current browser session via the logout flow.
  */
 export async function logout(): Promise<void> {
-  // Step 1: Get logout flow
+  // Step 1: fetch the logout flow.
   const flowResponse = await fetch(`${KRATOS_PUBLIC_URL}/self-service/logout/browser`, {
     method: 'GET',
     credentials: 'include',
@@ -634,7 +630,7 @@ export async function logout(): Promise<void> {
     },
   });
 
-  // 401 means no active session - that's fine
+  // 401 means there is nothing to log out, which is fine.
   if (flowResponse.status === 401) {
     return;
   }
@@ -649,7 +645,7 @@ export async function logout(): Promise<void> {
     throw new Error('No logout token in logout flow');
   }
 
-  // Step 2: call /self-service/logout?token=<logout_token> which returns 204 on success
+  // Step 2: exchange the logout token; 204 indicates success.
   const logoutResponse = await fetch(
     `${KRATOS_PUBLIC_URL}/self-service/logout?token=${logoutFlow.logout_token}`,
     {
@@ -661,7 +657,7 @@ export async function logout(): Promise<void> {
     }
   );
 
-  // 204 or 401 both mean success (no session or already logged out)
+  // 204 or 401 both mean success (no session or already logged out).
   if (logoutResponse.status === 204 || logoutResponse.status === 401) {
     return;
   }
@@ -671,9 +667,8 @@ export async function logout(): Promise<void> {
   }
 }
 
-// ============================================================================
-// Verification Flow Functions
-// ============================================================================
+// Verification Flow functions
+// ---------------------------
 
 /**
  * Starts a browser verification flow.
@@ -741,7 +736,7 @@ export async function submitVerification(
     throw new Error('CSRF token not found in flow');
   }
 
-  // Build URL with token if provided (for email link verification)
+  // Append the token when verifying via the emailed link.
   let url = `${KRATOS_PUBLIC_URL}/self-service/verification?flow=${flow.id}`;
   if (token) {
     url += `&token=${encodeURIComponent(token)}`;
@@ -783,9 +778,8 @@ export async function submitVerification(
   }
 }
 
-// ============================================================================
-// Recovery Flow Functions
-// ============================================================================
+// Recovery Flow functions
+// -----------------------
 
 /**
  * Starts a browser recovery flow.
@@ -840,7 +834,7 @@ export async function getRecoveryFlow(flowId: string): Promise<RecoveryFlow> {
 }
 
 /**
- * Sends a recovery request for the supplied email.
+ * Sends a recovery request for the supplied email address.
  */
 export async function submitRecovery(
   flow: RecoveryFlow,
@@ -888,7 +882,7 @@ export async function submitRecovery(
 }
 
 /**
- * Completes recovery by setting a new password.
+ * Completes the recovery flow by setting a new password.
  */
 export async function submitRecoveryWithPassword(
   flow: RecoveryFlow,
@@ -900,7 +894,7 @@ export async function submitRecoveryWithPassword(
     throw new Error('CSRF token not found in flow');
   }
 
-  // Token should be in URL query parameter according to OpenAPI spec
+  // The token rides in the query string per the OpenAPI spec.
   const url = `${KRATOS_PUBLIC_URL}/self-service/recovery?flow=${flow.id}&token=${encodeURIComponent(token)}`;
 
   const requestBody = {
@@ -936,9 +930,8 @@ export async function submitRecoveryWithPassword(
   }
 }
 
-// ============================================================================
-// Settings Flow Functions
-// ============================================================================
+// Settings Flow functions
+// -----------------------
 
 /**
  * Starts a browser settings flow (requires an active session).
@@ -1086,5 +1079,5 @@ export async function changePassword(
   return data as SettingsFlow;
 }
 
-// Re-export types for convenience
+// Re-export types for convenience.
 export type { Session as KratosSession };

@@ -29,33 +29,32 @@ const Verification = () => {
   const flowId = searchParams.get("flow");
   const token = searchParams.get("token");
 
-  // Initialize flow
+  // Initialize or resume the verification flow.
   useEffect(() => {
     const initFlow = async () => {
       try {
         if (flowId) {
-          // Get existing flow from URL
+          // Try to resume the flow referenced in the query string.
           try {
             const flow = await getVerificationFlow(flowId);
             setVerificationFlow(flow);
             
-            // If token is present and flow is ready, verification is already complete
+            // When the token is present the challenge may already be complete.
             if (token && flow.state === 'passed_challenge') {
               setIsSuccess(true);
               await refreshSession();
             }
           } catch (error) {
-            // Flow expired or invalid, create new one
+            // Fall back to a new flow if the current one can't be used.
             const newFlow = await initiateVerificationFlow();
             setVerificationFlow(newFlow);
           }
         } else if (token) {
-          // Token present but no flow ID - need to create flow with token
-          // Kratos will handle token verification when we submit
+          // If the link only carries a token, bootstrap a new flow—Kratos will confirm the token on submit.
           const flow = await initiateVerificationFlow();
           setVerificationFlow(flow);
         } else {
-          // Create new verification flow
+          // Otherwise start fresh.
           const flow = await initiateVerificationFlow();
           setVerificationFlow(flow);
         }
@@ -75,11 +74,11 @@ const Verification = () => {
       return;
     }
 
-    // If token is present, we're verifying from email link
+    // A token means the user clicked through from the email.
     if (token) {
       setIsLoading(true);
       try {
-        // Submit verification with token in query parameter
+        // Send the token back to Kratos to finish the flow.
         await submitVerification(verificationFlow, undefined, token);
         setIsSuccess(true);
         toast.success("Email verified successfully!");
@@ -92,7 +91,7 @@ const Verification = () => {
       return;
     }
 
-    // Otherwise, request verification email
+    // Without a token we request another verification email.
     const emailToVerify = email.trim() || session?.identity.traits.email || "";
     if (!emailToVerify) {
       toast.error("Please enter your email address");
@@ -107,7 +106,7 @@ const Verification = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send verification email");
       
-      // If flow expired, try to get new flow
+      // Retry with a new flow when Kratos reports the current one as expired.
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {

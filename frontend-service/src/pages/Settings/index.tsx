@@ -1,15 +1,27 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Code2, User, KeyRound, Mail, Save, Eye, EyeOff, Globe, Calendar, FileText } from "lucide-react";
+import { Code2, User, KeyRound, Mail, Save, Eye, EyeOff, Globe, Calendar, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/shared/ui/alert-dialog";
 import { ThemeToggle } from "@/features/theme-toggle";
 import { toast } from "sonner";
 import { useAuth } from "@/shared/hooks/use-auth";
+import { deleteAccount as deleteAccountRequest } from "@/entities/account/api";
 import {
   initiateSettingsFlow,
   getSettingsFlow,
@@ -21,12 +33,13 @@ import {
 const Settings = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { session, refreshSession } = useAuth();
+  const { refreshSession, logout } = useAuth();
   const [settingsFlow, setSettingsFlow] = useState<SettingsFlow | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // Profile fields
+  // Profile form fields.
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -34,22 +47,22 @@ const Settings = () => {
   const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
   
-  // Password fields
+  // Password form fields.
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const flowId = searchParams.get("flow");
 
-  // Initialize flow
+  // Load the settings flow referenced in the URL (or create a fresh one).
   useEffect(() => {
     const initFlow = async () => {
       try {
         if (flowId) {
-          // Get existing flow from URL
+          // Try to resume the flow referenced in the URL.
           try {
             const flow = await getSettingsFlow(flowId);
             setSettingsFlow(flow);
-            // Pre-fill form with current identity data
+            // Mirror the identity traits in local state so the form is pre-filled.
             if (flow.identity) {
               const traits = flow.identity.traits;
               setEmail(traits.email || "");
@@ -60,7 +73,7 @@ const Settings = () => {
               setWebsite(traits.website || "");
             }
           } catch (error) {
-            // Flow expired or invalid, create new one
+            // If the flow can't be resumed, fall back to a fresh one.
             const newFlow = await initiateSettingsFlow();
             setSettingsFlow(newFlow);
             if (newFlow.identity) {
@@ -74,7 +87,7 @@ const Settings = () => {
             }
           }
         } else {
-          // Create new settings flow
+          // No flow ID present, so start a brand-new flow.
           const flow = await initiateSettingsFlow();
           setSettingsFlow(flow);
           if (flow.identity) {
@@ -124,7 +137,7 @@ const Settings = () => {
         email: trimmedEmail,
       };
 
-      // Add name if at least first name is provided
+      // Include name fields only when at least one value is provided.
       if (trimmedFirstName || trimmedLastName) {
         traits.name = {};
         if (trimmedFirstName) {
@@ -135,7 +148,7 @@ const Settings = () => {
         }
       }
 
-      // Add optional fields
+      // Copy optional fields when the user supplied them.
       if (trimmedBirthdate) {
         traits.birthdate = trimmedBirthdate;
       }
@@ -149,7 +162,7 @@ const Settings = () => {
       const updatedFlow = await updateProfile(settingsFlow, traits);
       setSettingsFlow(updatedFlow);
       
-      // Update local state with returned identity
+      // Keep the form inputs in sync with what Kratos persisted.
       if (updatedFlow.identity) {
         const updatedTraits = updatedFlow.identity.traits;
         setEmail(updatedTraits.email || "");
@@ -165,7 +178,7 @@ const Settings = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update profile");
       
-      // If flow expired, try to get new flow
+      // If Kratos reports an expired flow, replace it before the next attempt.
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
@@ -211,7 +224,7 @@ const Settings = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to change password");
       
-      // If flow expired, try to get new flow
+      // Same expiration handling for the password form.
       const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes('expired') || errorMessage.includes('flow')) {
         try {
@@ -223,6 +236,22 @@ const Settings = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) {
+      return;
+    }
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccountRequest();
+      toast.success("Account deleted");
+      await logout();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete account");
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -445,6 +474,51 @@ const Settings = () => {
               </Card>
             </TabsContent>
           </Tabs>
+
+          <Card className="border-destructive/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" />
+                Delete Account
+              </CardTitle>
+              <CardDescription>
+                Permanently remove your account, sessions, and typing history. This action cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Your identity will be removed from Kratos and all practice history will be deleted from the database.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={isDeletingAccount}>
+                    {isDeletingAccount ? "Deleting..." : "Delete account"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove your account, active sessions, and stored practice history. You will
+                      need to register again to use the platform.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive"
+                      disabled={isDeletingAccount}
+                      onClick={() => {
+                        void handleDeleteAccount();
+                      }}
+                    >
+                      {isDeletingAccount ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
