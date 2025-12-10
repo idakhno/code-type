@@ -30,7 +30,7 @@ Kratos courier sends verification and recovery emails to Mailhog during developm
 - ![Tailwind](https://skillicons.dev/icons?i=tailwind) Tailwind CSS and ThemeToggle keep the layout responsive in light and dark modes.
 - ![Go](https://skillicons.dev/icons?i=go) Go backend with chi routers, middleware, and embedded SQL migrations.
 - ![PostgreSQL](https://skillicons.dev/icons?i=postgres) PostgreSQL tracks every practice run inside the `practice_history` table with constraints and indexes.
-- ![Docker](https://skillicons.dev/icons?i=docker) Docker Compose orchestrates the entire stack—PostgreSQL, Kratos, Oathkeeper, Go backend, and Mailhog.
+- ![Docker](https://skillicons.dev/icons?i=docker) Docker Compose orchestrates the entire stack.
 
 ## How to Run
 
